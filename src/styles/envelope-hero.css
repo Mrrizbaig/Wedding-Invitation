@@ -1,0 +1,483 @@
+/* ================================================================
+   WEDDING INVITATION ENVELOPE
+   ================================================================ */
+
+.ref-envelope-stage {
+    position: fixed;
+
+    inset: 0;
+
+    width: 100vw;
+    height: 100dvh;
+
+    overflow: hidden;
+
+    z-index: 9999;
+
+    background: #ead1bc;
+
+    isolation: isolate;
+
+    perspective: 1800px;
+
+    -webkit-tap-highlight-color: transparent;
+}
+
+
+/* ================================================================
+   ENVELOPE CAMERA
+   ================================================================ */
+
+.ref-envelope {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    transform-style: preserve-3d;
+
+    transform-origin: center center;
+
+    will-change:
+            transform,
+            opacity;
+}
+
+
+/* ================================================================
+   BASE ARTWORK
+   ================================================================
+
+   This is the corrected base.
+
+   The upper flap area is transparent.
+
+   Therefore the flap image can sit directly over it.
+   ================================================================ */
+
+.ref-envelope-base {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+    object-position: center center;
+
+    user-select: none;
+
+    -webkit-user-drag: none;
+
+    pointer-events: none;
+
+    z-index: 1;
+}
+
+
+/* ================================================================
+   UPPER FLAP
+   ================================================================
+
+   IMPORTANT:
+
+   Do NOT use clip-path here.
+
+   envelope-flap.png already contains the transparent mask.
+
+   The asset is 940 x 1672 and is aligned exactly with the base.
+   ================================================================ */
+
+.ref-top-flap {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 10;
+
+    transform-origin:
+            50% 13.46%;
+
+    transform:
+            rotateX(0deg);
+
+    transform-style: preserve-3d;
+
+    backface-visibility: visible;
+
+    will-change: transform;
+
+    pointer-events: none;
+}
+
+
+.ref-top-flap-image {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: block;
+
+    object-fit: cover;
+    object-position: center center;
+
+    user-select: none;
+
+    -webkit-user-drag: none;
+
+    pointer-events: none;
+}
+
+
+/* ================================================================
+   SEAL HIT AREA
+   ================================================================
+
+   Approximate seal position in the 940 x 1672 artwork:
+
+   center X ≈ 470
+   center Y ≈ 825
+
+   Because the button is INSIDE the flap, it rotates with it.
+   ================================================================ */
+
+.ref-seal-hit-area {
+    position: absolute;
+
+    left: 50%;
+
+    top: 49.3%;
+
+    width:
+            clamp(
+                    120px,
+                    30vw,
+                    190px
+            );
+
+    aspect-ratio: 1;
+
+    transform:
+            translate(-50%, -50%);
+
+    z-index: 30;
+
+    pointer-events: auto;
+}
+
+
+/* ================================================================
+   INVISIBLE SEAL BUTTON
+   ================================================================ */
+
+.ref-wax-seal {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    padding: 0;
+    margin: 0;
+
+    border: 0;
+
+    border-radius: 50%;
+
+    background: transparent;
+
+    appearance: none;
+
+    cursor: pointer;
+
+    outline: none;
+
+    pointer-events: auto;
+}
+
+
+/* ================================================================
+   TACTILE PRESS
+   ================================================================ */
+
+.ref-wax-seal:active {
+    transform: scale(0.95);
+}
+
+
+.ref-wax-seal:focus-visible {
+    outline:
+            2px solid
+            rgba(255, 224, 150, 0.9);
+
+    outline-offset: 6px;
+}
+
+
+/* ================================================================
+   OPENING LIGHT
+   ================================================================ */
+
+.ref-opening-light {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    width: 260px;
+    height: 260px;
+
+    transform:
+            translate(-50%, -50%)
+            scale(0.03);
+
+    z-index: 5;
+
+    border-radius: 50%;
+
+    opacity: 0;
+
+    pointer-events: none;
+
+    background:
+            radial-gradient(
+                    circle,
+
+                    rgba(255, 255, 244, 1) 0%,
+
+                    rgba(255, 244, 190, 0.98) 12%,
+
+                    rgba(255, 218, 115, 0.88) 27%,
+
+                    rgba(239, 174, 47, 0.55) 46%,
+
+                    rgba(204, 128, 15, 0.18) 63%,
+
+                    transparent 78%
+            );
+
+    filter: blur(5px);
+
+    mix-blend-mode: screen;
+
+    will-change:
+            transform,
+            opacity;
+}
+
+
+/* ================================================================
+   GOLDEN BURST
+   ================================================================ */
+
+.ref-golden-burst {
+    position: absolute;
+
+    left: 50%;
+    top: 51%;
+
+    width: 320px;
+    height: 320px;
+
+    transform:
+            translate(-50%, -50%)
+            scale(0.03);
+
+    z-index: 6;
+
+    border-radius: 50%;
+
+    opacity: 0;
+
+    pointer-events: none;
+
+    background:
+            radial-gradient(
+                    circle,
+
+                    rgba(255, 255, 241, 1) 0%,
+
+                    rgba(255, 232, 150, 0.95) 15%,
+
+                    rgba(246, 190, 60, 0.65) 34%,
+
+                    rgba(210, 136, 19, 0.25) 57%,
+
+                    transparent 76%
+            );
+
+    filter: blur(7px);
+
+    mix-blend-mode: screen;
+
+    will-change:
+            transform,
+            opacity;
+}
+
+
+/* ================================================================
+   FINAL GOLD TRANSITION
+   ================================================================ */
+
+.ref-transition-light {
+    position: absolute;
+
+    left: 50%;
+    top: 51%;
+
+    width: 100vmax;
+    height: 100vmax;
+
+    transform:
+            translate(-50%, -50%)
+            scale(0.1);
+
+    z-index: 100;
+
+    border-radius: 50%;
+
+    opacity: 0;
+
+    pointer-events: none;
+
+    background:
+            radial-gradient(
+                    circle,
+
+                    #fffdf1 0%,
+
+                    #fff4c7 16%,
+
+                    #ffe29a 31%,
+
+                    #f3bf5a 47%,
+
+                    #d79630 62%,
+
+                    rgba(181, 110, 17, 0) 82%
+            );
+
+    filter: blur(4px);
+
+    mix-blend-mode: screen;
+
+    will-change:
+            transform,
+            opacity;
+}
+
+
+/* ================================================================
+   ACCESSIBILITY
+   ================================================================ */
+
+.ref-envelope-accessibility {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    padding: 0;
+    margin: -1px;
+
+    overflow: hidden;
+
+    clip: rect(0, 0, 0, 0);
+
+    white-space: nowrap;
+
+    border: 0;
+}
+
+
+/* ================================================================
+   SCREEN READER ONLY
+   ================================================================ */
+
+.sr-only {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    padding: 0;
+    margin: -1px;
+
+    overflow: hidden;
+
+    clip: rect(0, 0, 0, 0);
+
+    white-space: nowrap;
+
+    border: 0;
+}
+
+
+/* ================================================================
+   MOBILE
+   ================================================================ */
+
+@media (max-width: 600px) {
+    .ref-envelope-stage {
+        perspective: 1200px;
+    }
+
+    .ref-seal-hit-area {
+        width:
+                clamp(
+                        105px,
+                        31vw,
+                        155px
+                );
+    }
+
+    .ref-opening-light {
+        width: 200px;
+        height: 200px;
+    }
+
+    .ref-golden-burst {
+        width: 250px;
+        height: 250px;
+    }
+}
+
+
+/* ================================================================
+   VERY SMALL PHONES
+   ================================================================ */
+
+@media (max-width: 380px) {
+    .ref-seal-hit-area {
+        width: 105px;
+    }
+}
+
+
+/* ================================================================
+   REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .ref-envelope,
+    .ref-top-flap,
+    .ref-opening-light,
+    .ref-golden-burst,
+    .ref-transition-light {
+        transition: none !important;
+        animation: none !important;
+    }
+}
