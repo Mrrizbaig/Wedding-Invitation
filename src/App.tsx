@@ -22,38 +22,87 @@ import { invitation } from './data/invitation';
 gsap.registerPlugin(ScrollTrigger);
 
 export default function App() {
-    const [envelopeOpened, setEnvelopeOpened] = useState(false);
-    const [envelopeVisible, setEnvelopeVisible] = useState(true);
-    const [petalBurst, setPetalBurst] = useState(false);
+    /*
+     * ============================================================
+     * STATE
+     * ============================================================
+     */
 
-    const [musicPlaying, setMusicPlaying] = useState(false);
-    const [musicVisible, setMusicVisible] = useState(false);
+    const [envelopeOpened, setEnvelopeOpened] =
+        useState(false);
 
-    const mainRef = useRef<HTMLDivElement>(null);
-    const lenisRef = useRef<Lenis | null>(null);
+    const [envelopeVisible, setEnvelopeVisible] =
+        useState(true);
 
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [petalBurst, setPetalBurst] =
+        useState(false);
+
+    const [musicPlaying, setMusicPlaying] =
+        useState(false);
+
+    const [musicVisible, setMusicVisible] =
+        useState(false);
 
     /*
-     * Tracks whether the user has explicitly muted the music.
+     * ============================================================
+     * REFS
+     * ============================================================
+     */
+
+    const mainRef =
+        useRef<HTMLDivElement>(null);
+
+    const lenisRef =
+        useRef<Lenis | null>(null);
+
+    const audioRef =
+        useRef<HTMLAudioElement | null>(null);
+
+    /*
+     * Tracks whether the user has explicitly muted
+     * the music.
      *
-     * This has priority over the automatic Quran behavior.
+     * Manual mute always has priority over automatic
+     * Quran behavior.
      */
-    const userMutedRef = useRef(false);
+    const userMutedRef =
+        useRef(false);
 
     /*
-     * Tracks whether music was automatically paused because
-     * the Quran section entered the central reading zone.
+     * Tracks whether music was automatically paused
+     * because the Quran section entered the central
+     * reading zone.
      */
-    const quranPausedRef = useRef(false);
+    const quranPausedRef =
+        useRef(false);
 
     /*
-     * Prevents multiple fade animations from fighting each other.
+     * Prevents multiple audio fade animations from
+     * fighting each other.
      */
-    const musicFadeRef = useRef<gsap.core.Tween | null>(null);
+    const musicFadeRef =
+        useRef<gsap.core.Tween | null>(null);
+
+    /*
+     * Tracks whether the page/browser has moved into
+     * the background.
+     *
+     * IMPORTANT:
+     * Returning to the page does NOT automatically
+     * restart music.
+     */
+    const pageHiddenRef =
+        useRef(false);
+
+    /*
+     * ============================================================
+     * AUDIO INITIALIZATION
+     * ============================================================
+     */
 
     useEffect(() => {
-        const audio = new Audio('/audio/music.mp3');
+        const audio =
+            new Audio('/audio/music.mp3');
 
         audio.loop = true;
         audio.preload = 'auto';
@@ -63,270 +112,554 @@ export default function App() {
 
         return () => {
             musicFadeRef.current?.kill();
+            musicFadeRef.current = null;
 
             audio.pause();
             audio.currentTime = 0;
+
             audioRef.current = null;
         };
     }, []);
 
     /*
-     * Start music after the wax seal is pressed.
-     */
-    const startMusic = useCallback(() => {
-        const audio = audioRef.current;
-
-        if (!audio || userMutedRef.current) {
-            return;
-        }
-
-        audio
-            .play()
-            .then(() => {
-                setMusicPlaying(true);
-
-                musicFadeRef.current?.kill();
-
-                musicFadeRef.current = gsap.to(audio, {
-                    volume: 0.28,
-                    duration: 2.2,
-                    ease: 'power2.out',
-                });
-            })
-            .catch((error) => {
-                console.warn(
-                    'Background music could not start:',
-                    error,
-                );
-            });
-    }, []);
-
-    /*
-     * Manual music toggle.
+     * ============================================================
+     * STOP MUSIC WHEN PAGE/BROWSER BECOMES INACTIVE
+     * ============================================================
      *
-     * Manual mute has priority over all automatic Quran behavior.
+     * Mobile browsers do not reliably fire beforeunload when
+     * the browser/app is sent to the background or dismissed.
+     *
+     * visibilitychange:
+     *     Handles switching away from the page/app.
+     *
+     * pagehide:
+     *     Provides an additional safeguard when the page is
+     *     being dismissed, navigated away from, or closed.
+     *
+     * We intentionally STOP the music and do not automatically
+     * restart it when the user returns.
+     * ============================================================
      */
-    const toggleMusic = useCallback(() => {
-        const audio = audioRef.current;
 
-        if (!audio) {
-            return;
-        }
-
-        /*
-         * Currently playing -> USER MUTES.
-         */
-        if (!audio.paused) {
-            userMutedRef.current = true;
-
-            musicFadeRef.current?.kill();
-
-            musicFadeRef.current = gsap.to(audio, {
-                volume: 0,
-                duration: 0.45,
-                ease: 'power2.out',
-                onComplete: () => {
-                    audio.pause();
-                    setMusicPlaying(false);
-                },
-            });
-
-            return;
-        }
-
-        /*
-         * Currently paused -> USER ENABLES MUSIC.
-         *
-         * This clears the manual mute state.
-         */
-        userMutedRef.current = false;
-
-        audio
-            .play()
-            .then(() => {
-                setMusicPlaying(true);
-
-                musicFadeRef.current?.kill();
-
-                musicFadeRef.current = gsap.to(audio, {
-                    volume: 0.28,
-                    duration: 0.8,
-                    ease: 'power2.out',
-                });
-            })
-            .catch((error) => {
-                console.warn(
-                    'Music could not resume:',
-                    error,
-                );
-            });
-    }, []);
-
-    /*
-     * Show the music control only after the envelope has
-     * completely transitioned into the main invitation.
-     */
     useEffect(() => {
-        if (!envelopeVisible && envelopeOpened) {
-            const timer = window.setTimeout(() => {
-                setMusicVisible(true);
-            }, 450);
-
-            return () => {
-                window.clearTimeout(timer);
-            };
-        }
-    }, [envelopeVisible, envelopeOpened]);
-
-    /*
-     * Quran music behavior.
-     *
-     * IMPORTANT:
-     *
-     * We do NOT check whether the entire Quran section is visible.
-     *
-     * Instead, IntersectionObserver creates a virtual "reading zone"
-     * in the CENTER of the viewport.
-     *
-     * rootMargin:
-     *   -35% top
-     *   -35% bottom
-     *
-     * leaves approximately the central 30% of the screen as the
-     * active reading zone.
-     *
-     * Therefore:
-     *
-     * Quran enters center -> pause music.
-     * Quran leaves center -> resume music.
-     *
-     * This works even when the Quran section is taller than the
-     * viewport, which is common on mobile.
-     */
-    useEffect(() => {
-        if (!envelopeOpened) {
-            return;
-        }
-
-        const quranSection =
-            document.getElementById('quran-section');
-
-        if (!quranSection) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[0];
-
-                if (!entry) {
-                    return;
-                }
-
-                const audio = audioRef.current;
+        const stopMusic =
+            () => {
+                const audio =
+                    audioRef.current;
 
                 if (!audio) {
                     return;
                 }
 
                 /*
-                 * Quran is inside the central reading zone.
+                 * Mark the page as inactive.
                  */
-                if (entry.isIntersecting) {
-                    /*
-                     * If the user manually muted the music,
-                     * do absolutely nothing.
-                     */
-                    if (userMutedRef.current) {
-                        return;
-                    }
+                pageHiddenRef.current =
+                    true;
 
-                    /*
-                     * Already automatically paused.
-                     */
-                    if (quranPausedRef.current) {
-                        return;
-                    }
+                /*
+                 * Cancel any active fade animation.
+                 */
+                musicFadeRef.current?.kill();
+                musicFadeRef.current =
+                    null;
 
-                    quranPausedRef.current = true;
+                /*
+                 * Clear automatic Quran pause state.
+                 *
+                 * This is important because otherwise the Quran
+                 * observer could interpret the later page return
+                 * as a reason to resume the music.
+                 */
+                quranPausedRef.current =
+                    false;
 
-                    musicFadeRef.current?.kill();
+                /*
+                 * Stop and reset the audio.
+                 */
+                audio.pause();
+                audio.currentTime = 0;
+                audio.volume = 0;
 
-                    musicFadeRef.current = gsap.to(audio, {
-                        volume: 0,
-                        duration: 0.65,
-                        ease: 'power2.out',
-                        onComplete: () => {
-                            /*
-                             * Only pause if Quran is still responsible
-                             * for the pause and the user hasn't manually
-                             * muted/unmuted in the meantime.
-                             */
-                            if (
-                                quranPausedRef.current &&
-                                !userMutedRef.current
-                            ) {
-                                audio.pause();
-                                setMusicPlaying(false);
-                            }
-                        },
-                    });
+                setMusicPlaying(false);
+            };
+
+        const handleVisibilityChange =
+            () => {
+                if (
+                    document.visibilityState ===
+                    'hidden'
+                ) {
+                    stopMusic();
 
                     return;
                 }
 
                 /*
-                 * Quran has left the central reading zone.
+                 * The user has returned to the page.
                  *
-                 * Resume music automatically unless the user
-                 * explicitly muted it.
+                 * DO NOT automatically restart music.
+                 *
+                 * The user must explicitly press the
+                 * music control again.
                  */
-                if (
-                    quranPausedRef.current &&
-                    !userMutedRef.current
-                ) {
-                    quranPausedRef.current = false;
+                pageHiddenRef.current =
+                    false;
+            };
 
-                    audio
-                        .play()
-                        .then(() => {
-                            setMusicPlaying(true);
+        const handlePageHide =
+            () => {
+                stopMusic();
+            };
 
-                            musicFadeRef.current?.kill();
+        document.addEventListener(
+            'visibilitychange',
+            handleVisibilityChange,
+        );
 
-                            musicFadeRef.current = gsap.to(
-                                audio,
-                                {
-                                    volume: 0.28,
-                                    duration: 0.9,
-                                    ease: 'power2.out',
+        window.addEventListener(
+            'pagehide',
+            handlePageHide,
+        );
+
+        return () => {
+            document.removeEventListener(
+                'visibilitychange',
+                handleVisibilityChange,
+            );
+
+            window.removeEventListener(
+                'pagehide',
+                handlePageHide,
+            );
+        };
+    }, []);
+
+    /*
+     * ============================================================
+     * START MUSIC
+     * ============================================================
+     *
+     * Called directly from the wax-seal interaction.
+     *
+     * Keeping audio.play() inside the user interaction chain
+     * is important for Safari/iOS autoplay restrictions.
+     * ============================================================
+     */
+
+    const startMusic =
+        useCallback(() => {
+            const audio =
+                audioRef.current;
+
+            if (
+                !audio ||
+                userMutedRef.current ||
+                pageHiddenRef.current ||
+                document.visibilityState ===
+                'hidden'
+            ) {
+                return;
+            }
+
+            audio
+                .play()
+                .then(() => {
+                    /*
+                     * The page may have become hidden while
+                     * the play promise was resolving.
+                     *
+                     * Do not allow playback to resume in
+                     * that situation.
+                     */
+                    if (
+                        pageHiddenRef.current ||
+                        document.visibilityState ===
+                        'hidden'
+                    ) {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        audio.volume = 0;
+                        setMusicPlaying(false);
+
+                        return;
+                    }
+
+                    setMusicPlaying(true);
+
+                    musicFadeRef.current?.kill();
+
+                    musicFadeRef.current =
+                        gsap.to(audio, {
+                            volume: 0.28,
+                            duration: 2.2,
+                            ease: 'power2.out',
+                        });
+                })
+                .catch((error) => {
+                    console.warn(
+                        'Background music could not start:',
+                        error,
+                    );
+                });
+        }, []);
+
+    /*
+     * ============================================================
+     * MANUAL MUSIC TOGGLE
+     * ============================================================
+     */
+
+    const toggleMusic =
+        useCallback(() => {
+            const audio =
+                audioRef.current;
+
+            /*
+             * Never start music while the document is hidden.
+             */
+            if (
+                !audio ||
+                document.visibilityState ===
+                'hidden'
+            ) {
+                return;
+            }
+
+            /*
+             * ----------------------------------------------------
+             * CURRENTLY PLAYING
+             *
+             * User is manually muting the music.
+             * ----------------------------------------------------
+             */
+
+            if (!audio.paused) {
+                userMutedRef.current =
+                    true;
+
+                musicFadeRef.current?.kill();
+
+                musicFadeRef.current =
+                    gsap.to(audio, {
+                        volume: 0,
+                        duration: 0.45,
+                        ease: 'power2.out',
+
+                        onComplete: () => {
+                            audio.pause();
+
+                            setMusicPlaying(
+                                false,
+                            );
+                        },
+                    });
+
+                return;
+            }
+
+            /*
+             * ----------------------------------------------------
+             * CURRENTLY PAUSED
+             *
+             * User is manually enabling the music.
+             * ----------------------------------------------------
+             */
+
+            userMutedRef.current =
+                false;
+
+            /*
+             * Manual user action overrides the automatic
+             * Quran pause.
+             */
+            quranPausedRef.current =
+                false;
+
+            audio
+                .play()
+                .then(() => {
+                    /*
+                     * Make sure the page did not become hidden
+                     * while the play promise was resolving.
+                     */
+                    if (
+                        pageHiddenRef.current ||
+                        document.visibilityState ===
+                        'hidden'
+                    ) {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        audio.volume = 0;
+                        setMusicPlaying(false);
+
+                        return;
+                    }
+
+                    setMusicPlaying(true);
+
+                    musicFadeRef.current?.kill();
+
+                    musicFadeRef.current =
+                        gsap.to(audio, {
+                            volume: 0.28,
+                            duration: 0.8,
+                            ease: 'power2.out',
+                        });
+                })
+                .catch((error) => {
+                    console.warn(
+                        'Music could not resume:',
+                        error,
+                    );
+                });
+        }, []);
+
+    /*
+     * ============================================================
+     * SHOW MUSIC CONTROL
+     * ============================================================
+     *
+     * The control appears only after the envelope has completely
+     * transitioned into the main invitation.
+     * ============================================================
+     */
+
+    useEffect(() => {
+        if (
+            !envelopeVisible &&
+            envelopeOpened
+        ) {
+            const timer =
+                window.setTimeout(() => {
+                    setMusicVisible(true);
+                }, 450);
+
+            return () => {
+                window.clearTimeout(timer);
+            };
+        }
+
+        /*
+         * If the envelope is visible again for any reason,
+         * keep the control hidden.
+         */
+        setMusicVisible(false);
+    }, [
+        envelopeVisible,
+        envelopeOpened,
+    ]);
+
+    /*
+     * ============================================================
+     * QURAN MUSIC BEHAVIOR
+     * ============================================================
+     *
+     * We intentionally do not check whether the entire Quran
+     * section is visible.
+     *
+     * Instead, IntersectionObserver creates a virtual reading
+     * zone in the CENTER of the viewport.
+     *
+     * rootMargin:
+     *
+     *   -35% top
+     *   -35% bottom
+     *
+     * leaves approximately the central 30% of the viewport.
+     *
+     * Quran enters center:
+     *     -> music fades out
+     *     -> music pauses
+     *
+     * Quran leaves center:
+     *     -> music resumes
+     *
+     * Manual mute always has priority.
+     * ============================================================
+     */
+
+    useEffect(() => {
+        if (!envelopeOpened) {
+            return;
+        }
+
+        const quranSection =
+            document.getElementById(
+                'quran-section',
+            );
+
+        if (!quranSection) {
+            return;
+        }
+
+        const observer =
+            new IntersectionObserver(
+                (entries) => {
+                    const entry =
+                        entries[0];
+
+                    if (!entry) {
+                        return;
+                    }
+
+                    const audio =
+                        audioRef.current;
+
+                    if (!audio) {
+                        return;
+                    }
+
+                    /*
+                     * ------------------------------------------------
+                     * QURAN ENTERS CENTRAL READING ZONE
+                     * ------------------------------------------------
+                     */
+
+                    if (entry.isIntersecting) {
+                        /*
+                         * Manual mute has priority.
+                         */
+                        if (
+                            userMutedRef.current
+                        ) {
+                            return;
+                        }
+
+                        /*
+                         * If the page is hidden, do nothing.
+                         */
+                        if (
+                            pageHiddenRef.current ||
+                            document.visibilityState ===
+                            'hidden'
+                        ) {
+                            return;
+                        }
+
+                        /*
+                         * Already automatically paused.
+                         */
+                        if (
+                            quranPausedRef.current
+                        ) {
+                            return;
+                        }
+
+                        quranPausedRef.current =
+                            true;
+
+                        musicFadeRef.current?.kill();
+
+                        musicFadeRef.current =
+                            gsap.to(audio, {
+                                volume: 0,
+                                duration: 0.65,
+                                ease: 'power2.out',
+
+                                onComplete: () => {
+                                    /*
+                                     * Only pause if Quran is
+                                     * still responsible for the
+                                     * pause and the user has not
+                                     * manually muted/unmuted.
+                                     */
+                                    if (
+                                        quranPausedRef.current &&
+                                        !userMutedRef.current &&
+                                        !pageHiddenRef.current &&
+                                        document.visibilityState !==
+                                        'hidden'
+                                    ) {
+                                        audio.pause();
+
+                                        setMusicPlaying(
+                                            false,
+                                        );
+                                    }
+                                },
+                            });
+
+                        return;
+                    }
+
+                    /*
+                     * ------------------------------------------------
+                     * QURAN LEAVES CENTRAL READING ZONE
+                     * ------------------------------------------------
+                     */
+
+                    if (
+                        quranPausedRef.current &&
+                        !userMutedRef.current &&
+                        !pageHiddenRef.current &&
+                        document.visibilityState !==
+                        'hidden'
+                    ) {
+                        quranPausedRef.current =
+                            false;
+
+                        audio
+                            .play()
+                            .then(() => {
+                                /*
+                                 * Check again because the page
+                                 * could have been backgrounded
+                                 * while play() was resolving.
+                                 */
+                                if (
+                                    pageHiddenRef.current ||
+                                    document.visibilityState ===
+                                    'hidden'
+                                ) {
+                                    audio.pause();
+                                    audio.currentTime = 0;
+                                    audio.volume = 0;
+                                    setMusicPlaying(
+                                        false,
+                                    );
+
+                                    return;
+                                }
+
+                                setMusicPlaying(
+                                    true,
+                                );
+
+                                musicFadeRef.current?.kill();
+
+                                musicFadeRef.current =
+                                    gsap.to(
+                                        audio,
+                                        {
+                                            volume: 0.28,
+                                            duration: 0.9,
+                                            ease: 'power2.out',
+                                        },
+                                    );
+                            })
+                            .catch(
+                                (error) => {
+                                    console.warn(
+                                        'Music could not resume after Quran section:',
+                                        error,
+                                    );
                                 },
                             );
-                        })
-                        .catch((error) => {
-                            console.warn(
-                                'Music could not resume after Quran section:',
-                                error,
-                            );
-                        });
-                }
-            },
-            {
-                /*
-                 * Creates a central reading zone:
-                 *
-                 * 0%  -------------------- 100%
-                 *
-                 *       [ 30% zone ]
-                 *
-                 *       top -35%
-                 *       bottom -35%
-                 */
-                root: null,
-                rootMargin: '-35% 0px -35% 0px',
-                threshold: 0,
-            },
-        );
+                    }
+                },
+                {
+                    /*
+                     * Central reading zone.
+                     */
+                    root: null,
+
+                    rootMargin:
+                        '-35% 0px -35% 0px',
+
+                    threshold: 0,
+                },
+            );
 
         observer.observe(quranSection);
 
@@ -336,135 +669,333 @@ export default function App() {
     }, [envelopeOpened]);
 
     /*
-     * Lenis + ScrollTrigger.
+     * ============================================================
+     * SCROLL + SCROLLTRIGGER
+     * ============================================================
+     *
+     * DESKTOP
+     * --------
+     * Lenis smooth wheel scrolling is retained.
+     *
+     * TOUCH DEVICES
+     * -------------
+     * iOS Safari and Android Chrome use their native scrolling
+     * system.
+     *
+     * We deliberately do NOT create a Lenis RAF loop on touch
+     * devices.
+     *
+     * Native touch scrolling is already heavily optimized by the
+     * browser compositor. Adding another interpolation loop on
+     * top of it provides little visual benefit while consuming
+     * additional CPU time.
+     *
+     * The visual section animations themselves remain.
+     * ============================================================
      */
+
     useEffect(() => {
         if (!envelopeOpened) {
             return;
         }
 
-        const isMobile = window
-            .matchMedia('(max-width: 767px)')
-            .matches;
+        const isTouchDevice =
+            window.matchMedia(
+                '(pointer: coarse)',
+            ).matches;
 
-        const lenis = new Lenis({
-            lerp: isMobile ? 0.14 : 0.10,
-            smoothWheel: true,
-            smoothTouch: false,
-            touchMultiplier: 1,
-        });
+        let lenis: Lenis | null =
+            null;
 
-        lenisRef.current = lenis;
+        let rafId:
+            | number
+            | null = null;
 
-        lenis.on('scroll', ScrollTrigger.update);
+        /*
+         * --------------------------------------------------------
+         * DESKTOP
+         * --------------------------------------------------------
+         */
 
-        const rafId = {
-            current: 0,
-        };
+        if (!isTouchDevice) {
+            lenis = new Lenis({
+                lerp: 0.10,
 
-        const raf = (time: number) => {
-            lenis.raf(time);
-            rafId.current = requestAnimationFrame(raf);
-        };
+                smoothWheel: true,
 
-        rafId.current = requestAnimationFrame(raf);
+                smoothTouch: false,
+
+                touchMultiplier: 1,
+            });
+
+            lenisRef.current =
+                lenis;
+
+            lenis.on(
+                'scroll',
+                ScrollTrigger.update,
+            );
+
+            const raf = (
+                time: number,
+            ) => {
+                lenis?.raf(time);
+
+                rafId =
+                    requestAnimationFrame(
+                        raf,
+                    );
+            };
+
+            rafId =
+                requestAnimationFrame(
+                    raf,
+                );
+        } else {
+            /*
+             * ----------------------------------------------------
+             * TOUCH
+             * ----------------------------------------------------
+             *
+             * Native browser scrolling.
+             *
+             * ScrollTrigger still receives the browser's native
+             * scroll events.
+             * ----------------------------------------------------
+             */
+
+            lenisRef.current = null;
+        }
+
+        /*
+         * --------------------------------------------------------
+         * MAIN INVITATION INTRO
+         * --------------------------------------------------------
+         */
 
         if (mainRef.current) {
             gsap.fromTo(
                 mainRef.current,
                 {
                     opacity: 0,
+
                     scale: 1.035,
+
                     y: 12,
                 },
                 {
                     opacity: 1,
+
                     scale: 1,
+
                     y: 0,
+
                     duration: 1.15,
+
                     ease: 'power3.out',
+
                     delay: 0.02,
                 },
             );
+
+            /*
+             * ----------------------------------------------------
+             * INVITATION SECTIONS
+             * ----------------------------------------------------
+             *
+             * Each section uses ONE ScrollTrigger timeline
+             * containing both visual animations.
+             *
+             * This reduces ScrollTrigger bookkeeping while
+             * preserving the existing visual movement.
+             * ----------------------------------------------------
+             */
 
             const sections =
                 gsap.utils.toArray<HTMLElement>(
                     '#invitation-content > section',
                 );
 
-            sections.forEach((section, index) => {
-                const content =
-                    section.firstElementChild as HTMLElement | null;
+            sections.forEach(
+                (section, index) => {
+                    const content =
+                        section.firstElementChild as
+                            | HTMLElement
+                            | null;
 
-                if (!content) {
-                    return;
-                }
+                    if (!content) {
+                        return;
+                    }
 
-                gsap.fromTo(
-                    section,
-                    {
-                        opacity: 0.82,
-                        y: 8,
-                    },
-                    {
-                        opacity: 1,
-                        y: 0,
-                        ease: 'none',
-                        scrollTrigger: {
-                            trigger: section,
-                            start: 'top 94%',
-                            end: 'top 56%',
-                            scrub: 0.75,
+                    const timeline =
+                        gsap.timeline({
+                            scrollTrigger: {
+                                trigger:
+                                section,
+
+                                start: isTouchDevice
+                                    ? 'top 88%'
+                                    : 'top 94%',
+
+                                end: isTouchDevice
+                                    ? 'top 62%'
+                                    : 'top 52%',
+
+                                scrub: isTouchDevice
+                                    ? 0.35
+                                    : 0.75,
+                            },
+                        });
+
+                    /*
+                     * Section fade / movement.
+                     */
+                    timeline.fromTo(
+                        section,
+                        {
+                            opacity: 0.82,
+
+                            y: 8,
                         },
-                    },
-                );
+                        {
+                            opacity: 1,
 
-                gsap.fromTo(
-                    content,
-                    {
-                        y: index === 0 ? 18 : 20,
-                        scale: 0.985,
-                        rotateX: 1.5,
-                    },
-                    {
-                        y: 0,
-                        scale: 1,
-                        rotateX: 0,
-                        ease: 'none',
-                        scrollTrigger: {
-                            trigger: section,
-                            start: 'top 90%',
-                            end: 'top 52%',
-                            scrub: 0.75,
+                            y: 0,
+
+                            ease: 'none',
+
+                            duration: 1,
                         },
-                    },
-                );
-            });
+                        0,
+                    );
 
+                    /*
+                     * Section content movement.
+                     */
+                    timeline.fromTo(
+                        content,
+                        {
+                            y:
+                                index === 0
+                                    ? 18
+                                    : 20,
+
+                            scale: 0.985,
+
+                            rotateX: 1.5,
+                        },
+                        {
+                            y: 0,
+
+                            scale: 1,
+
+                            rotateX: 0,
+
+                            ease: 'none',
+
+                            duration: 1,
+                        },
+                        0,
+                    );
+                },
+            );
+
+            /*
+             * Force ScrollTrigger to recalculate all
+             * section positions after the invitation has
+             * entered the DOM.
+             */
             ScrollTrigger.refresh();
         }
 
+        /*
+         * --------------------------------------------------------
+         * CLEANUP
+         * --------------------------------------------------------
+         */
+
         return () => {
-            lenis.destroy();
-            cancelAnimationFrame(rafId.current);
+            /*
+             * Destroy Lenis only when desktop created it.
+             */
+            if (lenis) {
+                lenis.destroy();
+            }
+
+            /*
+             * Stop desktop RAF.
+             */
+            if (rafId !== null) {
+                cancelAnimationFrame(
+                    rafId,
+                );
+            }
+
+            lenisRef.current = null;
+
+            /*
+             * Kill only ScrollTriggers belonging to the
+             * invitation content.
+             *
+             * This avoids interfering with other GSAP
+             * animations/components.
+             */
+            ScrollTrigger.getAll().forEach(
+                (trigger) => {
+                    const element =
+                        trigger.trigger;
+
+                    if (
+                        element instanceof
+                        HTMLElement &&
+                        element.closest(
+                            '#invitation-content',
+                        )
+                    ) {
+                        trigger.kill();
+                    }
+                },
+            );
         };
     }, [envelopeOpened]);
 
-    const handleEnvelopeReveal = useCallback(() => {
-        setEnvelopeOpened(true);
-    }, []);
+    /*
+     * ============================================================
+     * ENVELOPE CALLBACKS
+     * ============================================================
+     */
 
-    const handleEnvelopeComplete = useCallback(() => {
-        setEnvelopeVisible(false);
-    }, []);
+    const handleEnvelopeReveal =
+        useCallback(() => {
+            setEnvelopeOpened(true);
+        }, []);
 
-    const handlePetalBurst = useCallback(() => {
-        setPetalBurst(true);
-    }, []);
+    const handleEnvelopeComplete =
+        useCallback(() => {
+            setEnvelopeVisible(false);
+        }, []);
 
-    const handleBurstEnd = useCallback(() => {
-        setPetalBurst(false);
-    }, []);
+    /*
+     * ============================================================
+     * PETAL CALLBACKS
+     * ============================================================
+     */
+
+    const handlePetalBurst =
+        useCallback(() => {
+            setPetalBurst(true);
+        }, []);
+
+    const handleBurstEnd =
+        useCallback(() => {
+            setPetalBurst(false);
+        }, []);
+
+    /*
+     * ============================================================
+     * RENDER
+     * ============================================================
+     */
 
     return (
         <div
@@ -473,6 +1004,12 @@ export default function App() {
                 background: '#F7F0E5',
             }}
         >
+            {/*
+             * ====================================================
+             * MUSIC CONTROL
+             * ====================================================
+             */}
+
             {musicVisible && (
                 <button
                     type="button"
@@ -491,24 +1028,54 @@ export default function App() {
                                 : 'music-icon music-icon-muted'
                         }
                     >
-                        {musicPlaying ? '♫' : '♪'}
+                        {musicPlaying
+                            ? '♫'
+                            : '♪'}
                     </span>
                 </button>
             )}
 
+            {/*
+             * ====================================================
+             * PETALS
+             * ====================================================
+             */}
+
             <PetalSystem
                 burst={petalBurst}
-                onBurstEnd={handleBurstEnd}
+                onBurstEnd={
+                    handleBurstEnd
+                }
             />
+
+            {/*
+             * ====================================================
+             * ENVELOPE
+             * ====================================================
+             */}
 
             {envelopeVisible && (
                 <EnvelopeExperience
-                    onReveal={handleEnvelopeReveal}
-                    onComplete={handleEnvelopeComplete}
-                    petalBurst={handlePetalBurst}
-                    onMusicStart={startMusic}
+                    onReveal={
+                        handleEnvelopeReveal
+                    }
+                    onComplete={
+                        handleEnvelopeComplete
+                    }
+                    petalBurst={
+                        handlePetalBurst
+                    }
+                    onMusicStart={
+                        startMusic
+                    }
                 />
             )}
+
+            {/*
+             * ====================================================
+             * MAIN INVITATION
+             * ====================================================
+             */}
 
             <div
                 id="invitation-content"
@@ -519,7 +1086,10 @@ export default function App() {
                         : ''
                 }`}
                 style={{
-                    opacity: envelopeOpened ? 1 : 0,
+                    opacity:
+                        envelopeOpened
+                            ? 1
+                            : 0,
                 }}
             >
                 <InvitationIntro />
@@ -529,7 +1099,9 @@ export default function App() {
                 <QuranSection />
 
                 <Countdown
-                    target={invitation.countdownTarget}
+                    target={
+                        invitation.countdownTarget
+                    }
                 />
 
                 <ClosingSection />

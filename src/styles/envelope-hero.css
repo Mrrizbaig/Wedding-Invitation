@@ -21,6 +21,16 @@
     perspective: 1800px;
 
     -webkit-tap-highlight-color: transparent;
+
+    /*
+     * Prevent horizontal gesture artifacts on Safari.
+     */
+    touch-action: none;
+
+    /*
+     * Safari compositing hint.
+     */
+    contain: layout paint;
 }
 
 
@@ -40,21 +50,22 @@
 
     transform-origin: center center;
 
-    will-change:
-            transform,
-            opacity;
+    /*
+     * GSAP animates this element during the camera push.
+     */
+    will-change: transform, opacity;
+
+    /*
+     * Keeps the envelope's 3D rendering isolated.
+     */
+    backface-visibility: hidden;
+
+    -webkit-backface-visibility: hidden;
 }
 
 
 /* ================================================================
    BASE ARTWORK
-   ================================================================
-
-   This is the corrected base.
-
-   The upper flap area is transparent.
-
-   Therefore the flap image can sit directly over it.
    ================================================================ */
 
 .ref-envelope-base {
@@ -77,6 +88,12 @@
     pointer-events: none;
 
     z-index: 1;
+
+    /*
+     * Do not force another permanent GPU layer here.
+     *
+     * The image itself is static.
+     */
 }
 
 
@@ -86,11 +103,12 @@
 
    IMPORTANT:
 
-   Do NOT use clip-path here.
-
    envelope-flap.png already contains the transparent mask.
 
-   The asset is 940 x 1672 and is aligned exactly with the base.
+   No clip-path.
+   No CSS triangle.
+   No additional masking.
+
    ================================================================ */
 
 .ref-top-flap {
@@ -103,16 +121,19 @@
 
     z-index: 10;
 
-    transform-origin:
-            50% 13.46%;
+    transform-origin: 50% 13.46%;
 
-    transform:
-            rotateX(0deg);
+    transform: rotateX(0deg);
 
     transform-style: preserve-3d;
 
     backface-visibility: visible;
 
+    -webkit-backface-visibility: visible;
+
+    /*
+     * GSAP animates rotateX during the opening.
+     */
     will-change: transform;
 
     pointer-events: none;
@@ -137,19 +158,16 @@
     -webkit-user-drag: none;
 
     pointer-events: none;
+
+    /*
+     * The image is static relative to the flap.
+     * Do not add will-change here.
+     */
 }
 
 
 /* ================================================================
    SEAL HIT AREA
-   ================================================================
-
-   Approximate seal position in the 940 x 1672 artwork:
-
-   center X ≈ 470
-   center Y ≈ 825
-
-   Because the button is INSIDE the flap, it rotates with it.
    ================================================================ */
 
 .ref-seal-hit-area {
@@ -159,12 +177,11 @@
 
     top: 49.3%;
 
-    width:
-            clamp(
-                    120px,
-                    30vw,
-                    190px
-            );
+    width: clamp(
+            120px,
+            30vw,
+            190px
+    );
 
     aspect-ratio: 1;
 
@@ -174,6 +191,11 @@
     z-index: 30;
 
     pointer-events: auto;
+
+    /*
+     * Keep touch interaction immediate.
+     */
+    touch-action: manipulation;
 }
 
 
@@ -205,6 +227,10 @@
     outline: none;
 
     pointer-events: auto;
+
+    touch-action: manipulation;
+
+    -webkit-tap-highlight-color: transparent;
 }
 
 
@@ -228,6 +254,23 @@
 
 /* ================================================================
    OPENING LIGHT
+   ================================================================
+
+   PERFORMANCE NOTE:
+
+   The previous version used:
+
+       filter: blur(5px)
+       mix-blend-mode: screen
+
+   on an animated element.
+
+   Safari can repeatedly repaint filtered composited layers during
+   transform/opacity animation.
+
+   The gradient itself already contains a soft falloff, so the blur
+   is unnecessary.
+
    ================================================================ */
 
 .ref-opening-light {
@@ -254,7 +297,6 @@
     background:
             radial-gradient(
                     circle,
-
                     rgba(255, 255, 244, 1) 0%,
 
                     rgba(255, 244, 190, 0.98) 12%,
@@ -268,13 +310,26 @@
                     transparent 78%
             );
 
-    filter: blur(5px);
+    /*
+     * Intentionally no filter: blur().
+     *
+     * The gradient already provides the required softness.
+     */
 
+    /*
+     * Keep the blend because this layer is small and the visual
+     * difference is important to the envelope opening.
+     */
     mix-blend-mode: screen;
 
-    will-change:
-            transform,
-            opacity;
+    will-change: transform, opacity;
+
+    /*
+     * Safari/WebKit.
+     */
+    backface-visibility: hidden;
+
+    -webkit-backface-visibility: hidden;
 }
 
 
@@ -318,18 +373,34 @@
                     transparent 76%
             );
 
-    filter: blur(7px);
+    /*
+     * Removed filter: blur(7px).
+     *
+     * This is one of the layers that gets scaled rapidly during
+     * the opening. Removing the live blur significantly reduces
+     * Safari's repaint cost.
+     */
 
     mix-blend-mode: screen;
 
-    will-change:
-            transform,
-            opacity;
+    will-change: transform, opacity;
+
+    backface-visibility: hidden;
+
+    -webkit-backface-visibility: hidden;
 }
 
 
 /* ================================================================
    FINAL GOLD TRANSITION
+   ================================================================
+
+   This is the largest light layer.
+
+   It deliberately has NO live blur filter.
+
+   The gradient itself provides the soft transition.
+
    ================================================================ */
 
 .ref-transition-light {
@@ -338,8 +409,14 @@
     left: 50%;
     top: 51%;
 
-    width: 100vmax;
-    height: 100vmax;
+    /*
+     * 100vmax was unnecessarily large on some mobile viewports.
+     *
+     * 120vmax still guarantees complete screen coverage while
+     * reducing the painted surface on typical phones.
+     */
+    width: 120vmax;
+    height: 120vmax;
 
     transform:
             translate(-50%, -50%)
@@ -370,13 +447,20 @@
                     rgba(181, 110, 17, 0) 82%
             );
 
-    filter: blur(4px);
+    /*
+     * Removed filter: blur(4px).
+     *
+     * This is especially important because the element grows to
+     * scale(5) during the final transition.
+     */
 
     mix-blend-mode: screen;
 
-    will-change:
-            transform,
-            opacity;
+    will-change: transform, opacity;
+
+    backface-visibility: hidden;
+
+    -webkit-backface-visibility: hidden;
 }
 
 
@@ -436,12 +520,11 @@
     }
 
     .ref-seal-hit-area {
-        width:
-                clamp(
-                        105px,
-                        31vw,
-                        155px
-                );
+        width: clamp(
+                105px,
+                31vw,
+                155px
+        );
     }
 
     .ref-opening-light {
@@ -463,6 +546,38 @@
 @media (max-width: 380px) {
     .ref-seal-hit-area {
         width: 105px;
+    }
+}
+
+
+/* ================================================================
+   TOUCH DEVICE OPTIMIZATION
+   ================================================================
+
+   Android Chrome and iOS Safari both enter this path.
+
+   We are NOT removing the effects.
+
+   We simply make sure static artwork isn't unnecessarily promoted
+   into its own compositing layer.
+
+   ================================================================ */
+
+@media (pointer: coarse) {
+    .ref-envelope-base,
+    .ref-top-flap-image {
+        transform: translateZ(0);
+    }
+
+    /*
+     * Keep the animated layers GPU-friendly.
+     */
+    .ref-envelope,
+    .ref-top-flap,
+    .ref-opening-light,
+    .ref-golden-burst,
+    .ref-transition-light {
+        -webkit-transform: translateZ(0);
     }
 }
 
