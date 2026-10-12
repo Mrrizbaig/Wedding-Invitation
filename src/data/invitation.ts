@@ -70,11 +70,11 @@ export const invitation: InvitationData = {
 
   guardians: [
     {
-      name: 'Mrs. Late Mirza Rasheed Baig Sahab',
+      name: 'Mrs. Mirza Rasheed Baig Sahab',
       title: 'Timber Merchant',
     },
     {
-      name: 'Mrs. Late Mirza Hassan Baig',
+      name: 'Mrs. Mirza Hassan Baig',
     },
   ],
 
